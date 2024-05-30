@@ -18,19 +18,18 @@ import asyncio
 
 app = FastAPI()
 loged_in = False
+tasks_is_running = False
 
-async def my_task():
+def my_task():
+    global loged_in, tasks_is_running
+    tasks_is_running = True   
     log_in()
     loged_in = True
 
-@app.on_event("startup")
-def on_startup():
-    asyncio.create_task(my_task())
-    print("Task started")
-
 @app.get("/login")
-async def login():
-
+async def login(background_tasks: BackgroundTasks):
+    if not tasks_is_running:
+        background_tasks.add_task(my_task)
     if loged_in:
         return {"message": "Success, Logged in"}
     else:
@@ -41,19 +40,31 @@ async def root(payload: dict, request: Request):
     import json
     fields = ["shipping_address","phone", "line_items", "total_price", "created_at"]
     print(request.headers)
-    if len( payload["fulfillments"]) > 0:
+    if payload['closed_at'] is None and len( payload["fulfillments"]) == 0:
+        messenger = WhatsApp(get_driver())
+        messenger.find_user(payload['phone'].replace('+',''))
+        messenger.send_message(template_pedido(payload))
+    elif len( payload["fulfillments"]) > 0 and payload['closed_at'] is None:
         print(json.dumps({k:v for k,v in payload["fulfillments"][0].items() if k != 'line_items'}, indent=4))
         messenger = WhatsApp(get_driver())
-        messenger.find_user(payload['phone'])
-        messenger.send_message('')   
-    else:
+        messenger.find_user( "57" + next(filter(lambda x: x['name'] == "Teléfono", payload["note_attributes"])))
+        messenger.send_message('hello')   
+        sleep(5)
+    elif payload['closed_at'] is not None:
         print(json.dumps({k:v for k,v in payload.items() if k in fields}, indent=4))
         messenger = WhatsApp(get_driver())
         messenger.find_user(payload['phone'].replace('+',''))
         messenger.send_message(template_pedido(payload))   
     return {'hello': 'world'}
     
-
+@app.post("/test-message")
+async def root2(payload: dict, request: Request):
+    import json
+    print(json.dumps(payload, indent=4))
+    messenger = WhatsApp(get_driver())
+    messenger.send_direct_message(payload['phone'], payload['message'], saved=False)
+    sleep(5)
+    return {'phone': payload['phone'], 'message': payload['message']}
 
 
 
@@ -108,14 +119,20 @@ def log_in():
     
 
 def template_pedido(info):
-    return f"""Hola, Nombre Apellido
+    telefono = next(filter(lambda x: x['name'] == "Teléfono", info["note_attributes"]))
+    Direccion = next(filter(lambda x: x['name'] == "Dirección", info["note_attributes"]))
+    Ciudad = next(filter(lambda x: x['name'] == "Ciudad", info["note_attributes"]))
+    Nombre = next(filter(lambda x: x['name'] == "Nombre", info["note_attributes"]))
+    Apellido = next(filter(lambda x: x['name'] == "Apellido", info["note_attributes"]))
+
+    return f"""Hola, {Nombre} {Apellido}
 
             Te confirmamos que hemos recibido tu pedido en nuestra tienda con los siguientes detalles:
 
-            📱 Teléfono: {info['phone']}
+            📱 Teléfono: {telefono}
             📦 Producto: Producto
-            🏠 Direccion: {info['shipping_address']['address1']}
-            🏙️ Ciudad: {info['shipping_address']['city']}
+            🏠 Direccion: {Direccion}
+            🏙️ Ciudad: {Ciudad}
             💳 Total: ${info['total_price']}
 
             SELECCIONA A LA OPCION DE TU INTERES
