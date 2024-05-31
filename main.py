@@ -79,7 +79,7 @@ async def root2(payload: dict, request: Request):
 
 def get_driver():
     from webdriver_manager.chrome import ChromeDriverManager
-    service = ChromeService()
+    service = ChromeService(executable_path=ChromeDriverManager().install())
     chrome_options = webdriver.ChromeOptions()
     #chrome_options.add_argument('--headless')
     chrome_options.add_argument('--no-sandbox')
