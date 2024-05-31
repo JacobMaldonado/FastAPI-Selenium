@@ -46,7 +46,7 @@ async def root(payload: dict, request: Request):
     calling_code = next(filter(lambda x: x['name'] == "Country code", payload["note_attributes"]))['value']
     phone_number = next(filter(lambda x: x['name'] == "Teléfono", payload["note_attributes"]))['value']
     print(calling_code)
-    full_number = "52" + phone_number
+    full_number = "57" + phone_number
     driver = get_driver()
     messenger = WhatsApp(driver)
     messenger.find_user(full_number)
@@ -168,7 +168,7 @@ Hola, {Nombre} {Apellido}
 Te confirmamos que hemos recibido tu pedido en nuestra tienda con los siguientes detalles:
 
 :mobile phone\t Teléfono: {telefono}
-:package\t Producto: Producto
+:package\t Producto: {info['line_items'][0]['title']}
 :house\t Direccion: {Direccion}
 :citys\t Ciudad: {Ciudad}
 :card\t Total: ${info['total_price']}
