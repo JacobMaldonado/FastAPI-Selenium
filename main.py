@@ -16,7 +16,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 import sys
 from alright import WhatsApp
 from fastapi.responses import FileResponse
-import asyncio
+import traceback
 
 
 app = FastAPI()
@@ -42,6 +42,7 @@ async def login(background_tasks: BackgroundTasks):
 async def root(payload: dict, request: Request):
     import json
     fields = ["shipping_address","phone", "line_items", "total_price", "created_at"]
+    print(payload)
     print(request.headers)
     calling_code = next(filter(lambda x: x['name'] == "Country code", payload["note_attributes"]))['value']
     phone_number = next(filter(lambda x: x['name'] == "Teléfono", payload["note_attributes"]))['value']
@@ -68,8 +69,10 @@ async def root(payload: dict, request: Request):
 async def root2(payload: dict, request: Request):
     import json
     print(json.dumps(payload, indent=4))
-    messenger = WhatsApp(get_driver())
+    messenger = WhatsApp(get_driver(), 20)
+    print("openning browser")
     messenger.send_direct_message(payload['phone'], payload['message'], saved=False)
+    print("message sent")
     sleep(5)
     return {'phone': payload['phone'], 'message': payload['message']}
 
@@ -85,6 +88,9 @@ def get_driver():
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--remote-debugging-port=9222')
     chrome_options.add_argument('--disable-dev-shm-usage')
+    chrome_options.add_argument('--disable-gpu')
+    chrome_options.add_argument('--disable-extensions')
+    chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0')
     #chrome_options.headless = True
     if sys.platform == "win32":
         chrome_options.add_argument("--profile-directory=Default")
@@ -103,7 +109,7 @@ def log_in():
     #input("Presiona Enter para continuar...")
     while True:
         try:
-            element = WebDriverWait(driver, 10).until(
+            element = WebDriverWait(driver, 30).until(
                             EC.presence_of_element_located((By.CLASS_NAME, "_akau"))
                         )
             # Encuentra el div y extrae el texto
@@ -119,7 +125,8 @@ def log_in():
             # Guarda la imagen
             img.save("codigo_qr.png")
             sleep(1)
-        except:
+        except Exception as bug:
+            print(traceback.format_exc())
             print("Loged in")
             break
     driver.close()
