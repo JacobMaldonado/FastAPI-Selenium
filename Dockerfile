@@ -3,7 +3,7 @@ ARG PORT=443
 
 
 FROM cypress/browsers:latest
-ENV PORT=$PORT
+
 
 RUN apt-get install python3 -y
 
