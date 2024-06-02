@@ -113,7 +113,7 @@ def process_webhook(payload):
     calling_code = next(filter(lambda x: x['name'] == "Country code", payload["note_attributes"]))['value']
     phone_number = next(filter(lambda x: x['name'] == "Teléfono", payload["note_attributes"]))['value']
     print(calling_code)
-    full_number = "52" + phone_number
+    full_number = "57" + phone_number
     messenger.find_user(full_number)
     
     sleep(1)
