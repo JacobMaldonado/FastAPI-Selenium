@@ -17,69 +17,12 @@ import sys
 from alright import WhatsApp
 from fastapi.responses import FileResponse
 import traceback
-
+import schedule
+import threading
 
 app = FastAPI()
 loged_in = False
 tasks_is_running = False
-
-def my_task():
-    global loged_in, tasks_is_running
-    tasks_is_running = True   
-    log_in()
-    loged_in = True
-
-@app.get("/login")
-async def login(background_tasks: BackgroundTasks):
-    if not tasks_is_running:
-        background_tasks.add_task(my_task)
-    if loged_in:
-        return {"message": "Success, Logged in"}
-    else:
-        return FileResponse("codigo_qr.png")
-
-@app.post("/")
-async def root(payload: dict, request: Request):
-    import json
-    fields = ["shipping_address","phone", "line_items", "total_price", "created_at"]
-    print(payload)
-    print(request.headers)
-    calling_code = next(filter(lambda x: x['name'] == "Country code", payload["note_attributes"]))['value']
-    phone_number = next(filter(lambda x: x['name'] == "Teléfono", payload["note_attributes"]))['value']
-    print(calling_code)
-    full_number = "57" + phone_number
-    driver = get_driver()
-    messenger = WhatsApp(driver)
-    messenger.find_user(full_number)
-
-    if payload['closed_at'] == "None" and len( payload["fulfillments"]) == 0:
-        print("initial message")
-        send_message(driver, template_pedido(payload))
-    elif len( payload["fulfillments"]) > 0 and payload['closed_at'] == "None":
-        print("tracking recived")
-        messenger.send_direct_message(full_number, template_pedido(payload), False)
-        sleep(5)
-    elif payload['closed_at'] != "None":
-        print("out to deliever")
-        messenger.send_direct_message(full_number, template_pedido(payload), False)
-    sleep(5)
-    return {'hello': 'world'}
-    
-@app.post("/test-message")
-async def root2(payload: dict, request: Request):
-    import json
-    print(json.dumps(payload, indent=4))
-    messenger = WhatsApp(get_driver(), 20)
-    print("openning browser")
-    messenger.send_direct_message(payload['phone'], payload['message'], saved=False)
-    print("message sent")
-    sleep(5)
-    return {'phone': payload['phone'], 'message': payload['message']}
-
-
-
-# Inicializa el navegador (debes tener instalado ChromeDriver o el driver correspondiente)
-
 def get_driver():
     from webdriver_manager.chrome import ChromeDriverManager
     service = ChromeService(executable_path=ChromeDriverManager().install())
@@ -101,9 +44,114 @@ def get_driver():
     driver = webdriver.Chrome(service=service,options=chrome_options)
     return driver
 
-def log_in():
-    driver = get_driver()
+driver = get_driver()
+messenger = WhatsApp(driver)
 
+def my_task():
+    global loged_in, tasks_is_running
+    tasks_is_running = True   
+    log_in()
+    loged_in = True
+
+
+def check_messages() -> None:
+    print("Checking for messages")
+    if loged_in:
+        print(messenger.get_list_of_messages())
+    else:
+        print("Not logged in")
+    print("Done checking messages")
+
+def run_continuously(interval=1):
+    """Continuously run, while executing pending jobs at each
+    elapsed time interval.
+    @return cease_continuous_run: threading. Event which can
+    be set to cease continuous run. Please note that it is
+    *intended behavior that run_continuously() does not run
+    missed jobs*. For example, if you've registered a job that
+    should run every minute and you set a continuous run
+    interval of one hour then your job won't be run 60 times
+    at each interval but only once.
+    """
+    cease_continuous_run = threading.Event()
+
+    class ScheduleThread(threading.Thread):
+        @classmethod
+        def run(cls):
+            while not cease_continuous_run.is_set():
+                schedule.run_pending()
+                sleep(interval)
+
+    continuous_thread = ScheduleThread()
+    continuous_thread.start()
+    return cease_continuous_run
+
+schedule.every(10).seconds.do(check_messages)
+#run_continuously()
+
+@app.get("/login")
+async def login(background_tasks: BackgroundTasks):
+    print("login")
+    if not tasks_is_running:
+        print("adding task")
+        background_tasks.add_task(my_task)
+    if loged_in:
+        return {"message": "Success, Logged in"}
+    else:
+        return FileResponse("codigo_qr.png")
+
+@app.post("/")
+async def root(payload: dict, request: Request, background_tasks: BackgroundTasks):
+    print(payload)
+    print(request.headers)
+    background_tasks.add_task(process_webhook, payload)
+    return {'hello': 'world'}
+
+def process_webhook(payload):
+    import json
+    fields = ["shipping_address","phone", "line_items", "total_price", "created_at"]
+    calling_code = next(filter(lambda x: x['name'] == "Country code", payload["note_attributes"]))['value']
+    phone_number = next(filter(lambda x: x['name'] == "Teléfono", payload["note_attributes"]))['value']
+    print(calling_code)
+    full_number = "52" + phone_number
+    messenger.find_user(full_number)
+    
+    sleep(1)
+
+    if payload['closed_at'] == "None" and len( payload["fulfillments"]) == 0:
+        print("initial message")
+        send_message(driver, template_pedido(payload))
+    elif len( payload["fulfillments"]) > 0 and payload['closed_at'] == "None":
+        print("tracking recived")
+        messenger.send_message(template_guia_creada(payload))
+    elif payload['closed_at'] != "None":
+        print("out to deliever")
+        messenger.send_message(template_en_reparto(payload))
+    sleep(5)
+    return {'hello': 'world'}
+    
+@app.post("/test-message")
+async def root2(payload: dict, request: Request):
+    import json
+    print(json.dumps(payload, indent=4))
+    #messenger = WhatsApp(driver, 60)
+    print("openning browser")
+    messenger.find_user(payload['phone'])
+    sleep(5)
+    messenger.send_message( payload['message'])
+    print("message sent")
+    sleep(5)
+    return {'phone': payload['phone'], 'message': payload['message']}
+
+
+
+# Inicializa el navegador (debes tener instalado ChromeDriver o el driver correspondiente)
+
+
+
+def log_in():
+    #driver = get_driver()
+    print("running log in")
     # Abre la página web con el div que contiene los datos
     driver.get("https://web.whatsapp.com/")
     #input("Presiona Enter para continuar...")
@@ -129,7 +177,7 @@ def log_in():
             print(traceback.format_exc())
             print("Loged in")
             break
-    driver.close()
+    #driver.close()
     return True
     #input("Presiona Enter para continuar...")
     # Cierra el navegador
@@ -197,7 +245,7 @@ def template_guia_creada(info):
     Apellido = next(filter(lambda x: x['name'] == "Apellido", info["note_attributes"]))['value']
     guia_info = next(filter(lambda x: x['name'] == "_dropi_shipping_guide", info["note_attributes"]))['value']
     guia = guia_info.replace("# Guia: ", "").split(" ")[0]
-    transportadora = guia_info.split("")[-1]
+    transportadora = guia_info.split(" ")[-1]
 
     return f"""
 Hola {Nombre} {Apellido} :person raising\t
