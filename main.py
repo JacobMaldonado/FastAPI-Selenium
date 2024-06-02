@@ -118,13 +118,13 @@ def process_webhook(payload):
     
     sleep(1)
 
-    if payload['closed_at'] == "None" and len( payload["fulfillments"]) == 0:
+    if (payload['closed_at'] == "None" or payload['closed_at'] == None) and len( payload["fulfillments"]) == 0:
         print("initial message")
         send_message(driver, template_pedido(payload))
-    elif len( payload["fulfillments"]) > 0 and payload['closed_at'] == "None":
+    elif len( payload["fulfillments"]) > 0 and (payload['closed_at'] == "None" or payload['closed_at'] == None):
         print("tracking recived")
         messenger.send_message(template_guia_creada(payload))
-    elif payload['closed_at'] != "None":
+    elif payload['closed_at'] != "None" or payload['closed_at'] != None :
         print("out to deliever")
         messenger.send_message(template_en_reparto(payload))
     sleep(5)
