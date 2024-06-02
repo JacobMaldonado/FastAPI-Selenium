@@ -19,6 +19,7 @@ from fastapi.responses import FileResponse
 import traceback
 import schedule
 import threading
+import phonenumbers
 
 app = FastAPI()
 loged_in = False
@@ -27,13 +28,13 @@ def get_driver():
     from webdriver_manager.chrome import ChromeDriverManager
     service = ChromeService(executable_path=ChromeDriverManager().install())
     chrome_options = webdriver.ChromeOptions()
-    chrome_options.add_argument('--headless')
-    chrome_options.add_argument('--no-sandbox')
-    chrome_options.add_argument('--remote-debugging-port=9222')
-    chrome_options.add_argument('--disable-dev-shm-usage')
-    chrome_options.add_argument('--disable-gpu')
-    chrome_options.add_argument('--disable-extensions')
-    chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0')
+    # chrome_options.add_argument('--headless')
+    # chrome_options.add_argument('--no-sandbox')
+    # chrome_options.add_argument('--remote-debugging-port=9222')
+    # chrome_options.add_argument('--disable-dev-shm-usage')
+    # chrome_options.add_argument('--disable-gpu')
+    # chrome_options.add_argument('--disable-extensions')
+    # chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0')
     #chrome_options.headless = True
     if sys.platform == "win32":
         chrome_options.add_argument("--profile-directory=Default")
@@ -112,8 +113,9 @@ def process_webhook(payload):
     fields = ["shipping_address","phone", "line_items", "total_price", "created_at"]
     calling_code = next(filter(lambda x: x['name'] == "Country code", payload["note_attributes"]))['value']
     phone_number = next(filter(lambda x: x['name'] == "Teléfono", payload["note_attributes"]))['value']
+    region = next(filter(lambda x: x['name'] == "Country code", payload["note_attributes"]))['value']
     print(calling_code)
-    full_number = "57" + phone_number
+    full_number = str(phonenumbers.country_code_for_region(region)) + phone_number
     messenger.find_user(full_number)
     
     sleep(1)
@@ -123,10 +125,10 @@ def process_webhook(payload):
         send_message(driver, template_pedido(payload))
     elif len( payload["fulfillments"]) > 0 and (payload['closed_at'] == "None" or payload['closed_at'] == None):
         print("tracking recived")
-        messenger.send_message(template_guia_creada(payload))
+        send_message(driver,template_guia_creada(payload))
     elif payload['closed_at'] != "None" or payload['closed_at'] != None :
         print("out to deliever")
-        messenger.send_message(template_en_reparto(payload))
+        send_message(driver,template_en_reparto(payload))
     sleep(5)
     return {'hello': 'world'}
     
@@ -199,6 +201,15 @@ def send_message(driver, message):
                 input_box.send_keys(":three")
                 ActionChains(driver).key_down(Keys.ARROW_RIGHT).key_up(Keys.ARROW_RIGHT).key_down(Keys.TAB).key_up(Keys.TAB).perform()    
                 line = line.replace(":three", "")
+            if ":writing hand" in line:
+                input_box.send_keys(":writing hand")
+                ActionChains(driver).key_down(Keys.TAB).key_up(Keys.TAB).key_down(Keys.RETURN).key_up(Keys.RETURN).perform()    
+                line = line.replace(":writing hand", "")
+            if ":backhand index pointing down" in line:
+                input_box.send_keys(line[:line.find(":backhand index pointing down")])
+                input_box.send_keys(":backhand index pointing down")
+                ActionChains(driver).key_down(Keys.TAB).key_up(Keys.TAB).key_down(Keys.RETURN).key_up(Keys.RETURN).perform()    
+                line = line[line.find(":backhand index pointing down"):].replace(":backhand index pointing down", "")
             print(line)
             input_box.send_keys(line)
             ActionChains(driver).key_down(Keys.SHIFT).key_down(
@@ -248,16 +259,15 @@ def template_guia_creada(info):
     transportadora = guia_info.split(" ")[-1]
 
     return f"""
-Hola {Nombre} {Apellido} :person raising\t
+Hola {Nombre} {Apellido} :person raising\t 
 
 Queremos informarte hemos preparado tu envío, y ahora está en ruta con el número de guía {guia} a través de la transportadora {transportadora} :delivery\t
 
-Recuerda que el tiempo estimado de entrega es de 2 a 4 días hábiles:package\t
+Recuerda que el tiempo estimado de entrega es de 2 a 4 días hábiles :package\t 
 
 Por favor mantente atento a este chat, donde te proporcionaremos más detalles sobre tu pedido.:mobile phone with arrow\t
 
-:writing hand\tPuedes hacer un seguimiento en tiempo real de tu paquete a través de este enlace:backhand index pointing down\t:backhand index pointing down\t
-
+:writing hand\t Puedes hacer un seguimiento en tiempo real de tu paquete a través de este enlace:backhand index pointing down\t :backhand index pointing down\t 
 https://interrapidisimo.com"""
 
 def obtener_enlace_por_transportadora(transportadora):
