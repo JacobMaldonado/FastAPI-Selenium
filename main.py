@@ -203,13 +203,18 @@ def send_message(driver, message):
                 line = line.replace(":three", "")
             if ":writing hand" in line:
                 input_box.send_keys(":writing hand")
-                ActionChains(driver).key_down(Keys.TAB).key_up(Keys.TAB).key_down(Keys.RETURN).key_up(Keys.RETURN).perform()    
+                ActionChains(driver).key_down(Keys.RETURN).key_up(Keys.RETURN).perform()    
                 line = line.replace(":writing hand", "")
-            if ":backhand index pointing down" in line:
-                input_box.send_keys(line[:line.find(":backhand index pointing down")])
-                input_box.send_keys(":backhand index pointing down")
-                ActionChains(driver).key_down(Keys.TAB).key_up(Keys.TAB).key_down(Keys.RETURN).key_up(Keys.RETURN).perform()    
-                line = line[line.find(":backhand index pointing down"):].replace(":backhand index pointing down", "")
+            while ":down" in line:
+                input_box.send_keys(line[:line.find(":down")])
+                input_box.send_keys(":down")
+                ActionChains(driver).key_down(Keys.ARROW_RIGHT).key_up(Keys.ARROW_RIGHT).key_down(Keys.TAB).key_up(Keys.TAB).perform()        
+                line = line[line.find(":down") + len(":down"):]
+            while ":person raising" in line:
+                input_box.send_keys(line[:line.find(":person raising")])
+                input_box.send_keys(":person raising")
+                ActionChains(driver).key_down(Keys.TAB).key_up(Keys.TAB).perform()        
+                line = line[line.find(":person raising") + len(":person raising"):]
             print(line)
             input_box.send_keys(line)
             ActionChains(driver).key_down(Keys.SHIFT).key_down(
@@ -259,7 +264,7 @@ def template_guia_creada(info):
     transportadora = guia_info.split(" ")[-1]
 
     return f"""
-Hola {Nombre} {Apellido} :person raising\t 
+Hola {Nombre} {Apellido} :person raising 
 
 Queremos informarte hemos preparado tu envío, y ahora está en ruta con el número de guía {guia} a través de la transportadora {transportadora} :delivery\t
 
@@ -267,8 +272,7 @@ Recuerda que el tiempo estimado de entrega es de 2 a 4 días hábiles :package\t
 
 Por favor mantente atento a este chat, donde te proporcionaremos más detalles sobre tu pedido.:mobile phone with arrow\t
 
-:writing hand\t Puedes hacer un seguimiento en tiempo real de tu paquete a través de este enlace:backhand index pointing down\t :backhand index pointing down\t 
-https://interrapidisimo.com"""
+:writing hand Puedes hacer un seguimiento en tiempo real de tu paquete a través de este enlace :down :down \n{obtener_enlace_por_transportadora(transportadora)}\n"""
 
 def obtener_enlace_por_transportadora(transportadora):
     if transportadora == "INTERRAPIDISIMO":
@@ -290,9 +294,9 @@ def template_en_reparto(info):
     Apellido = next(filter(lambda x: x['name'] == "Apellido", info["note_attributes"]))['value']
     total = info['total_price']
     return f"""
-Hola {Nombre} {Apellido} :person raising\t
+Hola {Nombre} {Apellido} :person raising
 
-¡Prepárate para recibir tu pedido! Informamos que estamos a punto de entregar tu pedido:package\t Hoy está en Reparto en tu Ciudad :delivery\t
+¡Prepárate para recibir tu pedido! Informamos que estamos a punto de entregar tu pedido :package\t Hoy está en Reparto en tu Ciudad :delivery\t
 
 Recuerda que si tu pedido es CONTRAENTREGA debes tener el valor de ${total} en efectivo. Al momento de recibir.
 
