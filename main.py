@@ -28,13 +28,13 @@ def get_driver():
     from webdriver_manager.chrome import ChromeDriverManager
     service = ChromeService(executable_path=ChromeDriverManager().install())
     chrome_options = webdriver.ChromeOptions()
-    # chrome_options.add_argument('--headless')
-    # chrome_options.add_argument('--no-sandbox')
-    # chrome_options.add_argument('--remote-debugging-port=9222')
-    # chrome_options.add_argument('--disable-dev-shm-usage')
-    # chrome_options.add_argument('--disable-gpu')
-    # chrome_options.add_argument('--disable-extensions')
-    # chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0')
+    chrome_options.add_argument('--headless')
+    chrome_options.add_argument('--no-sandbox')
+    chrome_options.add_argument('--remote-debugging-port=9222')
+    chrome_options.add_argument('--disable-dev-shm-usage')
+    chrome_options.add_argument('--disable-gpu')
+    chrome_options.add_argument('--disable-extensions')
+    chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0')
     #chrome_options.headless = True
     if sys.platform == "win32":
         chrome_options.add_argument("--profile-directory=Default")
@@ -58,7 +58,17 @@ def my_task():
 def check_messages() -> None:
     print("Checking for messages")
     if loged_in:
-        print(messenger.get_list_of_messages())
+        messages = messenger.get_list_of_messages()
+        messages_to_reply = list(filter(lambda x: x['message'] == "1" or x['message'] == "2" or x['message'] == "3" , messages))
+        print(messages_to_reply)
+        for message in messages_to_reply:
+            messenger.find_user(message["sender"].replace("+", "").replace(" ", ""))
+            if message['message'] == "1":
+                send_message(driver, template_aceptado())
+            elif message['message'] == "2":
+                send_message(driver, template_cancelado())
+            elif message['message'] == "3":
+                send_message(driver, template_modificar())
     else:
         print("Not logged in")
     print("Done checking messages")
@@ -88,7 +98,7 @@ def run_continuously(interval=1):
     return cease_continuous_run
 
 schedule.every(10).seconds.do(check_messages)
-#run_continuously()
+run_continuously()
 
 @app.get("/login")
 async def login(background_tasks: BackgroundTasks):
@@ -236,21 +246,21 @@ def template_pedido(info):
     Apellido = next(filter(lambda x: x['name'] == "Apellido", info["note_attributes"]))['value']
 
     return f"""
-Hola, {Nombre} {Apellido}
+Hola, *{Nombre}* *{Apellido}*
 
 Te confirmamos que hemos recibido tu pedido en nuestra tienda con los siguientes detalles:
 
-:mobile phone\t Teléfono: {telefono}
-:package\t Producto: {info['line_items'][0]['title']}
-:house\t Direccion: {Direccion}
-:citys\t Ciudad: {Ciudad}
-:card\t Total: ${info['total_price']}
+:mobile phone\t *Teléfono*: {telefono}
+:package\t *Producto*: {info['line_items'][0]['title']}
+:house\t *Direccion*: {Direccion}
+:citys\t *Ciudad*: {Ciudad}
+:card\t *Total*: *${info['total_price']}*
 
-SELECCIONA A LA OPCION DE TU INTERES
+*SELECCIONA A LA OPCION DE TU INTERES*
 
-:one\t CONFIRMAR PEDIDO
-:two\t CANCELAR PEDIDO
-:three MODIFICAR DATOS"""
+:one\t *CONFIRMAR PEDIDO*
+:two\t *CANCELAR PEDIDO*
+:three *MODIFICAR DATOS*"""
 
 
 def template_guia_creada(info):
@@ -264,9 +274,9 @@ def template_guia_creada(info):
     transportadora = guia_info.split(" ")[-1]
 
     return f"""
-Hola {Nombre} {Apellido} :person raising 
+Hola *{Nombre}* *{Apellido}* :person raising 
 
-Queremos informarte hemos preparado tu envío, y ahora está en ruta con el número de guía {guia} a través de la transportadora {transportadora} :delivery\t
+Queremos informarte hemos preparado tu envío, y ahora está en ruta con el número de guía *{guia}* a través de la transportadora *{transportadora}* :delivery\t
 
 Recuerda que el tiempo estimado de entrega es de 2 a 4 días hábiles :package\t 
 
@@ -281,6 +291,14 @@ def obtener_enlace_por_transportadora(transportadora):
         return "https://coordinadora.com/rastreo/rastreo-de-guia/"
     elif transportadora == "ENVIA":
         return "https://envia.co/"
+    elif transportadora == "SERVIENTREGA":
+        return "https://www.servientrega.com"
+    elif transportadora == "TCC":
+        return "https://www.tcc.com.co"
+    elif transportadora == "DOMINA":
+        return "https://www.domina.com.co/"
+    elif transportadora == "99MINUTOS":
+        return "https://www.99minutos.com/"
     else:
         return ""
     
@@ -294,11 +312,20 @@ def template_en_reparto(info):
     Apellido = next(filter(lambda x: x['name'] == "Apellido", info["note_attributes"]))['value']
     total = info['total_price']
     return f"""
-Hola {Nombre} {Apellido} :person raising
+Hola *{Nombre}* *{Apellido}* :person raising
 
 ¡Prepárate para recibir tu pedido! Informamos que estamos a punto de entregar tu pedido :package\t Hoy está en Reparto en tu Ciudad :delivery\t
 
-Recuerda que si tu pedido es CONTRAENTREGA debes tener el valor de ${total} en efectivo. Al momento de recibir.
+Recuerda que si tu pedido es *CONTRAENTREGA* debes tener el valor de *${total}* en efectivo. Al momento de recibir.
 
-En caso de no estar en casa, por favor autorizar a alguien de recibir :grinning face\t
+*En caso de no estar en casa, por favor autorizar a alguien de recibir* :grinning face\t
 """
+
+def template_aceptado():
+    return """*Muchas gracias por confirmar tu pedido* :smilin\t procederemos a despacharlo de inmediato :delive\t Cualquier inconveniente por aquí estaremos :sparkles\t"""
+
+def template_cancelado():
+    return """¡Vaya, qué lástima escuchar eso! ¿Te importaría contarme qué te hizo cambiar de opinión? Estoy aquí para ayudar y mejorar tu experiencia en lo que pueda."""
+
+def template_modificar():
+    return """Me regalas los datos correctos, por favor :blush\t O indícanos si quieres que te llamemos :telephone re\t"""
