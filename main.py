@@ -24,6 +24,8 @@ import phonenumbers
 app = FastAPI()
 loged_in = False
 tasks_is_running = False
+orders_db = {}
+
 def get_driver():
     from webdriver_manager.chrome import ChromeDriverManager
     service = ChromeService(executable_path=ChromeDriverManager().install())
@@ -58,17 +60,20 @@ def my_task():
 def check_messages() -> None:
     print("Checking for messages")
     if loged_in:
-        messages = messenger.get_list_of_messages()
-        messages_to_reply = list(filter(lambda x: x['message'] == "1" or x['message'] == "2" or x['message'] == "3" , messages))
-        print(messages_to_reply)
-        for message in messages_to_reply:
-            messenger.find_user(message["sender"].replace("+", "").replace(" ", ""))
-            if message['message'] == "1":
-                send_message(driver, template_aceptado())
-            elif message['message'] == "2":
-                send_message(driver, template_cancelado())
-            elif message['message'] == "3":
-                send_message(driver, template_modificar())
+        try:
+            messages = messenger.get_list_of_messages()
+            messages_to_reply = list(filter(lambda x: x['message'] == "1" or x['message'] == "2" or x['message'] == "3" , messages))
+            print(messages_to_reply)
+            for message in messages_to_reply:
+                messenger.find_user(message["sender"].replace("+", "").replace(" ", ""))
+                if message['message'] == "1":
+                    send_message(driver, template_aceptado())
+                elif message['message'] == "2":
+                    send_message(driver, template_cancelado())
+                elif message['message'] == "3":
+                    send_message(driver, template_modificar())
+        except Exception as bug:
+            print(bug)
     else:
         print("Not logged in")
     print("Done checking messages")
@@ -131,14 +136,23 @@ def process_webhook(payload):
     sleep(1)
 
     if (payload['closed_at'] == "None" or payload['closed_at'] == None) and len( payload["fulfillments"]) == 0:
+        if payload["id"] in orders_db:
+            return
         print("initial message")
         send_message(driver, template_pedido(payload))
+        orders_db[payload["id"]] = "INITIAL_MESSAGE"
     elif len( payload["fulfillments"]) > 0 and (payload['closed_at'] == "None" or payload['closed_at'] == None):
+        if payload["id"] not in orders_db or orders_db[payload["id"]] != "INITIAL_MESSAGE":
+            return
         print("tracking recived")
         send_message(driver,template_guia_creada(payload))
+        orders_db[payload["id"]] = "TRACKING_MESSAGE"
     elif payload['closed_at'] != "None" or payload['closed_at'] != None :
+        if payload["id"] not in orders_db or orders_db[payload["id"]] != "TRACKING_MESSAGE":
+            return
         print("out to deliever")
         send_message(driver,template_en_reparto(payload))
+        orders_db[payload["id"]] = "OUT_TO_DELIEVER"
     sleep(5)
     return {'hello': 'world'}
     
@@ -251,16 +265,16 @@ Hola, *{Nombre}* *{Apellido}*
 Te confirmamos que hemos recibido tu pedido en nuestra tienda con los siguientes detalles:
 
 :mobile phone\t *Teléfono*: {telefono}
-:package\t *Producto*: {info['line_items'][0]['title']}
+:package\t *Producto*: { ' + '.join(list(map(lambda x : x['title'], info['line_items'])))}
 :house\t *Direccion*: {Direccion}
 :citys\t *Ciudad*: {Ciudad}
 :card\t *Total*: *${info['total_price']}*
 
 *SELECCIONA A LA OPCION DE TU INTERES*
 
-:one\t *CONFIRMAR PEDIDO*
-:two\t *CANCELAR PEDIDO*
-:three *MODIFICAR DATOS*"""
+:one\t CONFIRMAR PEDIDO
+:two\t CANCELAR PEDIDO
+:three MODIFICAR DATOS"""
 
 
 def template_guia_creada(info):
