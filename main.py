@@ -30,13 +30,13 @@ def get_driver():
     from webdriver_manager.chrome import ChromeDriverManager
     service = ChromeService(executable_path=ChromeDriverManager().install())
     chrome_options = webdriver.ChromeOptions()
-    chrome_options.add_argument('--headless')
-    chrome_options.add_argument('--no-sandbox')
-    chrome_options.add_argument('--remote-debugging-port=9222')
-    chrome_options.add_argument('--disable-dev-shm-usage')
-    chrome_options.add_argument('--disable-gpu')
-    chrome_options.add_argument('--disable-extensions')
-    chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0')
+    # chrome_options.add_argument('--headless')
+    # chrome_options.add_argument('--no-sandbox')
+    # chrome_options.add_argument('--remote-debugging-port=9222')
+    # chrome_options.add_argument('--disable-dev-shm-usage')
+    # chrome_options.add_argument('--disable-gpu')
+    # chrome_options.add_argument('--disable-extensions')
+    #chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0')
     #chrome_options.headless = True
     if sys.platform == "win32":
         chrome_options.add_argument("--profile-directory=Default")
@@ -55,6 +55,7 @@ def my_task():
     tasks_is_running = True   
     log_in()
     loged_in = True
+    run_continuously()
 
 
 def check_messages() -> None:
@@ -103,7 +104,7 @@ def run_continuously(interval=1):
     return cease_continuous_run
 
 schedule.every(10).seconds.do(check_messages)
-run_continuously()
+
 
 @app.get("/login")
 async def login(background_tasks: BackgroundTasks):
@@ -222,9 +223,17 @@ def send_message(driver, message):
         )
         for line in message.split("\n"):
             if ":three" in line:
-                input_box.send_keys(":three")
-                ActionChains(driver).key_down(Keys.ARROW_RIGHT).key_up(Keys.ARROW_RIGHT).key_down(Keys.TAB).key_up(Keys.TAB).perform()    
+                input_box.send_keys(":number")
+                ActionChains(driver).key_down(Keys.ARROW_RIGHT).key_up(Keys.ARROW_RIGHT).key_down(Keys.ARROW_RIGHT).key_up(Keys.ARROW_RIGHT).key_down(Keys.ARROW_RIGHT).key_up(Keys.ARROW_RIGHT).key_down(Keys.TAB).key_up(Keys.TAB).perform()    
                 line = line.replace(":three", "")
+            if ":two" in line:
+                input_box.send_keys(":number")
+                ActionChains(driver).key_down(Keys.ARROW_RIGHT).key_up(Keys.ARROW_RIGHT).key_down(Keys.ARROW_RIGHT).key_up(Keys.ARROW_RIGHT).key_down(Keys.TAB).key_up(Keys.TAB).perform()  
+                line = line.replace(":two", "")
+            if ":one" in line:
+                input_box.send_keys(":number")
+                ActionChains(driver).key_down(Keys.ARROW_RIGHT).key_up(Keys.ARROW_RIGHT).key_down(Keys.TAB).key_up(Keys.TAB).perform()  
+                line = line.replace(":one", "")
             if ":writing hand" in line:
                 input_box.send_keys(":writing hand")
                 ActionChains(driver).key_down(Keys.RETURN).key_up(Keys.RETURN).perform()    
@@ -272,9 +281,9 @@ Te confirmamos que hemos recibido tu pedido en nuestra tienda con los siguientes
 
 *SELECCIONA A LA OPCION DE TU INTERES*
 
-:one\t CONFIRMAR PEDIDO
-:two\t CANCELAR PEDIDO
-:three MODIFICAR DATOS"""
+:one *CONFIRMAR PEDIDO*
+:two *CANCELAR PEDIDO*
+:three *MODIFICAR DATOS*"""
 
 
 def template_guia_creada(info):
