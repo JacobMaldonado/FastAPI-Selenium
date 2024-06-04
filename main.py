@@ -30,13 +30,13 @@ def get_driver():
     from webdriver_manager.chrome import ChromeDriverManager
     service = ChromeService(executable_path=ChromeDriverManager().install())
     chrome_options = webdriver.ChromeOptions()
-    # chrome_options.add_argument('--headless')
-    # chrome_options.add_argument('--no-sandbox')
-    # chrome_options.add_argument('--remote-debugging-port=9222')
-    # chrome_options.add_argument('--disable-dev-shm-usage')
-    # chrome_options.add_argument('--disable-gpu')
-    # chrome_options.add_argument('--disable-extensions')
-    #chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0')
+    chrome_options.add_argument('--headless')
+    chrome_options.add_argument('--no-sandbox')
+    chrome_options.add_argument('--remote-debugging-port=9222')
+    chrome_options.add_argument('--disable-dev-shm-usage')
+    chrome_options.add_argument('--disable-gpu')
+    chrome_options.add_argument('--disable-extensions')
+    chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0')
     #chrome_options.headless = True
     if sys.platform == "win32":
         chrome_options.add_argument("--profile-directory=Default")
