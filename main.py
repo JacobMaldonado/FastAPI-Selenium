@@ -92,7 +92,8 @@ bgtask = BackgroundTask()
 
 @app.on_event('startup')
 def on_startup():
-    asyncio.ensure_future(bgtask.my_task())
+    #asyncio.ensure_future(bgtask.my_task())
+    pass
 
 @app.get("/login")
 async def login(background_tasks: BackgroundTasks):
