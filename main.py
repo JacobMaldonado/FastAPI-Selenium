@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import FastAPI, BackgroundTasks, HTTPException, Request, BackgroundTasks
 from pydantic import BaseModel
 from extract import *
@@ -30,12 +31,12 @@ def get_driver():
     from webdriver_manager.chrome import ChromeDriverManager
     service = ChromeService(executable_path=ChromeDriverManager().install())
     chrome_options = webdriver.ChromeOptions()
-    chrome_options.add_argument('--headless')
-    chrome_options.add_argument('--no-sandbox')
-    chrome_options.add_argument('--remote-debugging-port=9222')
-    chrome_options.add_argument('--disable-dev-shm-usage')
-    chrome_options.add_argument('--disable-gpu')
-    chrome_options.add_argument('--disable-extensions')
+    # chrome_options.add_argument('--headless')
+    # chrome_options.add_argument('--no-sandbox')
+    # chrome_options.add_argument('--remote-debugging-port=9222')
+    # chrome_options.add_argument('--disable-dev-shm-usage')
+    # chrome_options.add_argument('--disable-gpu')
+    # chrome_options.add_argument('--disable-extensions')
     chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0')
     #chrome_options.headless = True
     if sys.platform == "win32":
@@ -55,7 +56,6 @@ def my_task():
     tasks_is_running = True   
     log_in()
     loged_in = True
-    run_continuously()
 
 
 def check_messages() -> None:
@@ -66,45 +66,34 @@ def check_messages() -> None:
             messages_to_reply = list(filter(lambda x: x['message'] == "1" or x['message'] == "2" or x['message'] == "3" , messages))
             print(messages_to_reply)
             for message in messages_to_reply:
-                messenger.find_user(message["sender"].replace("+", "").replace(" ", ""))
-                if message['message'] == "1":
-                    send_message(driver, template_aceptado())
-                elif message['message'] == "2":
-                    send_message(driver, template_cancelado())
-                elif message['message'] == "3":
-                    send_message(driver, template_modificar())
+                pass
+                #messenger.find_user(message["sender"].replace("+", "").replace(" ", ""))
+                # if message['message'] == "1":
+                #     send_message(driver, template_aceptado())
+                # elif message['message'] == "2":
+                #     send_message(driver, template_cancelado())
+                # elif message['message'] == "3":
+                #     send_message(driver, template_modificar())
         except Exception as bug:
             print(bug)
     else:
         print("Not logged in")
     print("Done checking messages")
 
-def run_continuously(interval=1):
-    """Continuously run, while executing pending jobs at each
-    elapsed time interval.
-    @return cease_continuous_run: threading. Event which can
-    be set to cease continuous run. Please note that it is
-    *intended behavior that run_continuously() does not run
-    missed jobs*. For example, if you've registered a job that
-    should run every minute and you set a continuous run
-    interval of one hour then your job won't be run 60 times
-    at each interval but only once.
-    """
-    cease_continuous_run = threading.Event()
+class BackgroundTask:
+    def __init__(self):
+        pass
 
-    class ScheduleThread(threading.Thread):
-        @classmethod
-        def run(cls):
-            while not cease_continuous_run.is_set():
-                schedule.run_pending()
-                sleep(interval)
+    async def my_task(self):
+        while True:
+            await asyncio.sleep(20)
+            check_messages()
 
-    continuous_thread = ScheduleThread()
-    continuous_thread.start()
-    return cease_continuous_run
+bgtask = BackgroundTask()
 
-schedule.every(10).seconds.do(check_messages)
-
+@app.on_event('startup')
+def on_startup():
+    asyncio.ensure_future(bgtask.my_task())
 
 @app.get("/login")
 async def login(background_tasks: BackgroundTasks):
@@ -140,19 +129,19 @@ def process_webhook(payload):
         if payload["id"] in orders_db:
             return
         print("initial message")
-        send_message(driver, template_pedido(payload))
+        send_message2(driver, template_pedido(payload))
         orders_db[payload["id"]] = "INITIAL_MESSAGE"
     elif len( payload["fulfillments"]) > 0 and (payload['closed_at'] == "None" or payload['closed_at'] == None):
         if payload["id"] not in orders_db or orders_db[payload["id"]] != "INITIAL_MESSAGE":
             return
         print("tracking recived")
-        send_message(driver,template_guia_creada(payload))
+        send_message2(driver,template_guia_creada(payload))
         orders_db[payload["id"]] = "TRACKING_MESSAGE"
     elif payload['closed_at'] != "None" or payload['closed_at'] != None :
         if payload["id"] not in orders_db or orders_db[payload["id"]] != "TRACKING_MESSAGE":
             return
         print("out to deliever")
-        send_message(driver,template_en_reparto(payload))
+        send_message2(driver,template_en_reparto(payload))
         orders_db[payload["id"]] = "OUT_TO_DELIEVER"
     sleep(5)
     return {'hello': 'world'}
@@ -165,7 +154,7 @@ async def root2(payload: dict, request: Request):
     print("openning browser")
     messenger.find_user(payload['phone'])
     sleep(5)
-    messenger.send_message( payload['message'])
+    send_message2(driver, payload['message'])
     print("message sent")
     sleep(5)
     return {'phone': payload['phone'], 'message': payload['message']}
@@ -249,7 +238,10 @@ def send_message(driver, message):
                 ActionChains(driver).key_down(Keys.TAB).key_up(Keys.TAB).perform()        
                 line = line[line.find(":person raising") + len(":person raising"):]
             print(line)
-            input_box.send_keys(line)
+            #input_box.send_keys(line)
+            driver.execute_script("arguments[0].innerHTML = '{}'".format(line),input_box)
+            input_box.send_keys('.')
+            input_box.send_keys(Keys.BACKSPACE)
             ActionChains(driver).key_down(Keys.SHIFT).key_down(
                 Keys.ENTER
             ).key_up(Keys.ENTER).key_up(Keys.SHIFT).perform()
@@ -258,8 +250,24 @@ def send_message(driver, message):
     except Exception as bug:
         print(bug)
 
-def paste_content(driver, el, content):
-    driver.execute_script("arguments[0].innerHTML = '{}'".format(content),el)
+def send_message2(driver, message):
+    """send_message ()
+        Sends a message to a target user
+
+        Args:
+            message ([type]): [description]
+        """
+    try:
+        inp_xpath = '//*[@id="main"]/footer/div/div/span[2]/div/div[2]/div/div/div'
+        input_box = WebDriverWait(driver, 600).until(
+            EC.presence_of_element_located((By.XPATH, inp_xpath))
+        )
+        paste_content(driver, input_box, message)
+        input_box.send_keys(Keys.ENTER)
+        print(f"Message sent successfuly ")
+    except Exception as bug:
+        print(bug)
+
 
 def template_pedido(info):
     telefono = next(filter(lambda x: x['name'] == "Teléfono", info["note_attributes"]))['value']
@@ -273,17 +281,17 @@ Hola, *{Nombre}* *{Apellido}*
 
 Te confirmamos que hemos recibido tu pedido en nuestra tienda con los siguientes detalles:
 
-:mobile phone\t *Teléfono*: {telefono}
-:package\t *Producto*: { ' + '.join(list(map(lambda x : x['title'], info['line_items'])))}
-:house\t *Direccion*: {Direccion}
-:citys\t *Ciudad*: {Ciudad}
-:card\t *Total*: *${info['total_price']}*
+📱 *Teléfono*: {telefono}
+📦 *Producto*: { ' + '.join(list(map(lambda x : x['title'], info['line_items'])))}
+🏠 *Direccion*: {Direccion}
+🏙️ *Ciudad*: {Ciudad}
+💳 *Total*: *${info['total_price']}*
 
 *SELECCIONA A LA OPCION DE TU INTERES*
 
-:one *CONFIRMAR PEDIDO*
-:two *CANCELAR PEDIDO*
-:three *MODIFICAR DATOS*"""
+1️⃣ *CONFIRMAR PEDIDO*
+2️⃣ *CANCELAR PEDIDO*
+3️⃣ *MODIFICAR DATOS*"""
 
 
 def template_guia_creada(info):
@@ -297,15 +305,15 @@ def template_guia_creada(info):
     transportadora = guia_info.split(" ")[-1]
 
     return f"""
-Hola *{Nombre}* *{Apellido}* :person raising 
+Hola *{Nombre}* *{Apellido}* 🙋 
 
-Queremos informarte hemos preparado tu envío, y ahora está en ruta con el número de guía *{guia}* a través de la transportadora *{transportadora}* :delivery\t
+Queremos informarte hemos preparado tu envío, y ahora está en ruta con el número de guía *{guia}* a través de la transportadora *{transportadora}* 🚚
 
-Recuerda que el tiempo estimado de entrega es de 2 a 4 días hábiles :package\t 
+Recuerda que el tiempo estimado de entrega es de 2 a 4 días hábiles 📦
 
-Por favor mantente atento a este chat, donde te proporcionaremos más detalles sobre tu pedido.:mobile phone with arrow\t
+Por favor mantente atento a este chat, donde te proporcionaremos más detalles sobre tu pedido.📲
 
-:writing hand Puedes hacer un seguimiento en tiempo real de tu paquete a través de este enlace :down :down \n{obtener_enlace_por_transportadora(transportadora)}\n"""
+✍️ Puedes hacer un seguimiento en tiempo real de tu paquete a través de este enlace 👇🏻👇🏻 \n\n{obtener_enlace_por_transportadora(transportadora)}\n"""
 
 def obtener_enlace_por_transportadora(transportadora):
     if transportadora == "INTERRAPIDISIMO":
@@ -335,20 +343,35 @@ def template_en_reparto(info):
     Apellido = next(filter(lambda x: x['name'] == "Apellido", info["note_attributes"]))['value']
     total = info['total_price']
     return f"""
-Hola *{Nombre}* *{Apellido}* :person raising
+Hola *{Nombre}* *{Apellido}* 🙋
 
-¡Prepárate para recibir tu pedido! Informamos que estamos a punto de entregar tu pedido :package\t Hoy está en Reparto en tu Ciudad :delivery\t
+
+¡Prepárate para recibir tu pedido! Informamos que estamos a punto de entregar tu pedido📦 Hoy está en Reparto en tu Ciudad 🚛
 
 Recuerda que si tu pedido es *CONTRAENTREGA* debes tener el valor de *${total}* en efectivo. Al momento de recibir.
 
-*En caso de no estar en casa, por favor autorizar a alguien de recibir* :grinning face\t
+*En caso de no estar en casa, por favor autorizar a alguien de recibir* 😃
 """
 
 def template_aceptado():
-    return """*Muchas gracias por confirmar tu pedido* :smilin\t procederemos a despacharlo de inmediato :delive\t Cualquier inconveniente por aquí estaremos :sparkles\t"""
+    return """*Muchas gracias por confirmar tu pedido* 🥰 procederemos a despacharlo de inmediato 🚚 Cualquier inconveniente por aquí estaremos ✨"""
 
 def template_cancelado():
     return """¡Vaya, qué lástima escuchar eso! ¿Te importaría contarme qué te hizo cambiar de opinión? Estoy aquí para ayudar y mejorar tu experiencia en lo que pueda."""
 
 def template_modificar():
-    return """Me regalas los datos correctos, por favor :blush\t O indícanos si quieres que te llamemos :telephone re\t"""
+    return """Me regalas los datos correctos, por favor 😊 O indícanos si quieres que te llamemos 📞"""
+
+def paste_content(driver, el, content):
+    driver.execute_script(
+      f'''
+const text = `{content}`;
+const dataTransfer = new DataTransfer();
+dataTransfer.setData('text', text);
+const event = new ClipboardEvent('paste', {{
+  clipboardData: dataTransfer,
+  bubbles: true
+}});
+arguments[0].dispatchEvent(event)
+''',
+      el)
