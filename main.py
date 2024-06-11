@@ -105,6 +105,20 @@ async def login(background_tasks: BackgroundTasks):
         return {"message": "Success, Logged in"}
     else:
         return FileResponse("codigo_qr.png")
+    
+@app.post("/pedidos-preliminares")
+async def pedidos_preliminares(payload: dict, request: Request):
+    
+    telefono = next(filter(lambda x: x['name'] == "Teléfono", payload["note_attributes"]), None)
+    if telefono is None:
+        return {"message": "No phone number found"}
+    telefono = telefono['value']
+    messenger.find_user(telefono)
+    sleep(5)
+    send_message2(driver, template_pedido(payload))
+
+    return {'hello': 'world'}
+
 
 @app.post("/")
 async def root(payload: dict, request: Request, background_tasks: BackgroundTasks):
@@ -361,6 +375,13 @@ def template_cancelado():
 
 def template_modificar():
     return """Me regalas los datos correctos, por favor 😊 O indícanos si quieres que te llamemos 📞"""
+
+def template_orden_pendiente(payload):
+    nombre = next(filter(lambda x: x['name'] == "Nombre", payload["note_attributes"]))['value']
+    apellido = next(filter(lambda x: x['name'] == "Apellido", payload["note_attributes"]))['value']
+    link = payload['invoice_url']
+    productos = list(map(lambda x : x['title'], payload['line_items']))
+    return f"""Hola, *{nombre}* *{apellido}* Dejaste un pedido pendiente de {' + '.join(productos)}, completalo para recibir tus productos {link}"""
 
 def paste_content(driver, el, content):
     driver.execute_script(
